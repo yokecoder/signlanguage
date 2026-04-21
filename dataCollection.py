@@ -5,11 +5,12 @@ import os
 import time
 
 # === SETTINGS ===
-SAVE_DURATION = 2  # seconds to record each sample
+SAVE_DURATION = 2  # seconds to record each s
 GESTURES = {
     '1': 'Hello',
     '2': 'See you later',
     '3': 'You good'
+    
 }
 DATA_DIR = "collected_data"
 FPS = 30  # Video FPS

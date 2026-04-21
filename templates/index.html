@@ -1,0 +1,373 @@
+
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;800&display=swap');
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+  :root{
+    --bg:#0a0a0a;--surface:#111111;--card:#161616;--border:#252525;
+    --accent:#e8ff47;--accent2:#c8f000;--warn:#ff5252;
+    --text:#e8e8e8;--muted:#555555;
+    --dot-grid:rgba(232,255,71,0.025);
+  }
+  body{font-family:'Syne',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden;}
+  body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(var(--dot-grid) 1px,transparent 1px),linear-gradient(90deg,var(--dot-grid) 1px,transparent 1px);background-size:32px 32px;pointer-events:none;z-index:0;}
+
+  header{position:relative;z-index:10;display:flex;align-items:center;justify-content:space-between;padding:16px 28px;border-bottom:1px solid var(--border);background:rgba(10,10,10,0.92);backdrop-filter:blur(8px);}
+  .logo{display:flex;align-items:center;gap:10px;}
+  .logo-icon{width:32px;height:32px;background:var(--accent);border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:16px;}
+  .logo-text{font-size:1.05rem;font-weight:800;letter-spacing:-0.5px;color:var(--text);}
+  .logo-text span{color:var(--accent);}
+  .header-status{display:flex;align-items:center;gap:7px;font-family:'Space Mono',monospace;font-size:.68rem;color:var(--muted);}
+  .status-dot{width:7px;height:7px;border-radius:50%;background:var(--muted);}
+  .status-dot.live{background:var(--accent);}
+
+  main{position:relative;z-index:1;display:grid;grid-template-columns:1fr 320px;gap:20px;padding:24px 28px;max-width:1240px;margin:0 auto;}
+
+  .camera-card{background:var(--card);border:1px solid var(--border);border-radius:14px;overflow:hidden;}
+  .camera-header{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--border);font-family:'Space Mono',monospace;font-size:.68rem;color:var(--muted);letter-spacing:.1em;}
+  .camera-wrapper{position:relative;background:#000;}
+  .cam-video{width:100%;display:block;aspect-ratio:16/9;object-fit:cover;opacity:0;transition:opacity .4s;transform:scaleX(-1);}
+  .cam-video.visible{opacity:1;}
+  .skel-canvas{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;}
+  .bracket{position:absolute;width:22px;height:22px;border-color:var(--accent);border-style:solid;opacity:.5;}
+  .bracket.tl{top:8px;left:8px;border-width:2px 0 0 2px;}
+  .bracket.tr{top:8px;right:8px;border-width:2px 2px 0 0;}
+  .bracket.bl{bottom:8px;left:8px;border-width:0 0 2px 2px;}
+  .bracket.br{bottom:8px;right:8px;border-width:0 2px 2px 0;}
+  .start-overlay{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;background:rgba(10,10,10,.9);backdrop-filter:blur(4px);transition:opacity .4s;}
+  .start-overlay.hidden{opacity:0;pointer-events:none;}
+  .start-icon{width:52px;height:52px;border-radius:12px;background:var(--surface);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:22px;}
+  .start-hint{color:var(--muted);font-size:.8rem;}
+  .start-title{font-size:1rem;font-weight:700;color:var(--text);}
+
+  .controls{display:flex;gap:10px;align-items:center;padding:12px 16px;border-top:1px solid var(--border);}
+  .btn{padding:8px 18px;border-radius:7px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-family:'Space Mono',monospace;font-size:.72rem;cursor:pointer;transition:all .2s;letter-spacing:.04em;}
+  .btn:hover{border-color:var(--accent);color:var(--accent);}
+  .btn.primary{background:var(--accent);color:#0a0a0a;border-color:var(--accent);font-weight:700;}
+  .btn.primary:hover{background:var(--accent2);}
+  .btn.danger{border-color:#333;color:var(--muted);}
+  .btn.danger:hover{border-color:var(--warn);color:var(--warn);}
+  .btn:disabled{opacity:.3;cursor:not-allowed;}
+  .fps-chip{margin-left:auto;font-family:'Space Mono',monospace;font-size:.66rem;color:var(--muted);}
+
+  .sidebar{display:flex;flex-direction:column;gap:14px;}
+
+  .pred-card{background:var(--card);border:1px solid var(--border);border-radius:14px;overflow:hidden;}
+  .card-title{padding:11px 16px;border-bottom:1px solid var(--border);font-family:'Space Mono',monospace;font-size:.65rem;color:var(--muted);letter-spacing:.12em;text-transform:uppercase;}
+  .prediction-display{padding:24px 16px 16px;text-align:center;}
+  .pred-label{font-size:2.4rem;font-weight:800;color:var(--accent);letter-spacing:-1px;min-height:3.2rem;display:flex;align-items:center;justify-content:center;transition:all .3s;}
+  .pred-label.idle{color:#333;font-size:.95rem;font-weight:400;}
+  .pred-conf{font-family:'Space Mono',monospace;font-size:.76rem;color:var(--muted);margin-top:5px;}
+  .conf-bar-wrap{padding:2px 16px 16px;}
+  .conf-bar-track{height:3px;background:var(--border);border-radius:2px;overflow:hidden;}
+  .conf-bar-fill{height:100%;background:var(--accent);border-radius:2px;width:0%;transition:width .4s ease;}
+
+  .buffer-card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:14px 16px;}
+  .buffer-label{display:flex;justify-content:space-between;font-family:'Space Mono',monospace;font-size:.65rem;color:var(--muted);margin-bottom:10px;}
+  .buffer-dots{display:flex;gap:3px;flex-wrap:wrap;}
+  .dot{width:9px;height:9px;border-radius:2px;background:var(--border);transition:background .2s;}
+  .dot.filled{background:#2a2a2a;border:1px solid #333;}
+  .dot.active{background:var(--accent);}
+
+  .prob-card{background:var(--card);border:1px solid var(--border);border-radius:14px;overflow:hidden;flex:1;}
+  .prob-list{padding:10px 14px 14px;display:flex;flex-direction:column;gap:9px;}
+  .prob-row{display:flex;flex-direction:column;gap:4px;}
+  .prob-row-header{display:flex;justify-content:space-between;font-size:.76rem;}
+  .prob-name{font-weight:600;color:var(--text);}
+  .prob-val{font-family:'Space Mono',monospace;font-size:.68rem;color:var(--muted);}
+  .prob-track{height:3px;background:var(--border);border-radius:2px;overflow:hidden;}
+  .prob-fill{height:100%;background:#2a2a2a;border-radius:2px;width:0%;transition:width .35s ease;}
+  .prob-fill.top{background:var(--accent);}
+
+  .sentence-card{background:var(--card);border:1px solid var(--border);border-radius:14px;overflow:hidden;}
+  .sentence-body{padding:14px 16px;min-height:60px;font-size:1rem;font-weight:600;color:var(--text);line-height:1.5;}
+  .word-chip{display:inline-block;background:rgba(232,255,71,.08);border:1px solid rgba(232,255,71,.18);color:var(--accent);padding:2px 10px;border-radius:20px;margin:2px 4px 2px 0;font-size:.84rem;}
+  .sentence-controls{display:flex;gap:7px;padding:10px 16px;border-top:1px solid var(--border);}
+
+  .hand-indicator{display:flex;align-items:center;gap:6px;font-family:'Space Mono',monospace;font-size:.66rem;}
+  .hand-dot{width:6px;height:6px;border-radius:50%;background:var(--muted);}
+  .hand-dot.detected{background:var(--accent);}
+
+  #toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--card);border:1px solid var(--accent);color:var(--accent);font-family:'Space Mono',monospace;font-size:.72rem;padding:9px 20px;border-radius:7px;opacity:0;pointer-events:none;transition:opacity .3s;z-index:100;}
+  #toast.show{opacity:1;}
+
+  @media(max-width:860px){main{grid-template-columns:1fr;}header{padding:12px 18px;}main{padding:16px 18px;}}
+</style>
+
+<header>
+  <div class="logo">
+    <div class="logo-icon">🤙</div>
+    <div class="logo-text">ISL <span>Sign</span> Recognizer</div>
+  </div>
+  <div class="header-status">
+    <div class="status-dot" id="conn-dot"></div>
+    <span id="conn-label">DISCONNECTED</span>
+  </div>
+</header>
+
+<main>
+  <div style="display:flex;flex-direction:column;gap:16px;">
+    <div class="camera-card">
+      <div class="camera-header">
+        <span>CAMERA INPUT</span>
+        <div class="hand-indicator">
+          <div class="hand-dot" id="hand-dot"></div>
+          <span id="hand-label">NO HAND</span>
+        </div>
+      </div>
+      <div class="camera-wrapper">
+        <video class="cam-video" id="camera-feed" autoplay playsinline muted></video>
+        <canvas class="skel-canvas" id="skeleton-canvas"></canvas>
+        <canvas id="capture-canvas" style="display:none;"></canvas>
+        <div class="bracket tl"></div><div class="bracket tr"></div>
+        <div class="bracket bl"></div><div class="bracket br"></div>
+        <div id="start-overlay">
+          <div class="start-icon">📷</div>
+          <div class="start-title">Camera not started</div>
+          <div class="start-hint">Click "Start Camera" to begin recognition</div>
+        </div>
+      </div>
+      <div class="controls">
+        <button class="btn primary" id="btn-start" onclick="startCamera()">Start Camera</button>
+        <button class="btn danger" id="btn-stop" onclick="stopCamera()" disabled>Stop</button>
+        <span class="fps-chip" id="fps-label">— fps</span>
+      </div>
+    </div>
+
+    <div class="sentence-card">
+      <div class="card-title">SENTENCE BUILDER</div>
+      <div class="sentence-body" id="sentence-display">
+        <span style="color:var(--muted);font-size:.84rem;font-weight:400;">Recognized words will appear here…</span>
+      </div>
+      <div class="sentence-controls">
+        <button class="btn" onclick="addWord()">＋ Add Word</button>
+        <button class="btn" onclick="clearSentence()">✕ Clear</button>
+        <button class="btn" onclick="copySentence()" style="margin-left:auto;">⎘ Copy</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="sidebar">
+    <div class="pred-card">
+      <div class="card-title">CURRENT PREDICTION</div>
+      <div class="prediction-display">
+        <div class="pred-label idle" id="pred-label">Waiting…</div>
+        <div class="pred-conf" id="pred-conf">Confidence: —</div>
+      </div>
+      <div class="conf-bar-wrap">
+        <div class="conf-bar-track"><div class="conf-bar-fill" id="conf-bar"></div></div>
+      </div>
+    </div>
+
+    <div class="buffer-card">
+      <div class="buffer-label">
+        <span>FRAME BUFFER</span>
+        <span id="buf-pct">0%</span>
+      </div>
+      <div class="buffer-dots" id="buffer-dots"></div>
+    </div>
+
+    <div class="prob-card">
+      <div class="card-title">CLASS PROBABILITIES</div>
+      <div class="prob-list" id="prob-list">
+        <div style="padding:6px 0;color:var(--muted);font-size:.78rem;">Start camera to see probabilities…</div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<div id="toast"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.6.1/socket.io.min.js"></script>
+<script>
+  const socket = io({ transports: ['websocket'] });
+  socket.on('connect', () => {
+    document.getElementById('conn-dot').classList.add('live');
+    document.getElementById('conn-label').textContent = 'CONNECTED';
+  });
+  socket.on('disconnect', () => {
+    document.getElementById('conn-dot').classList.remove('live');
+    document.getElementById('conn-label').textContent = 'DISCONNECTED';
+  });
+
+  let stream=null,sendRafId=null,drawRafId=null,lastPrediction=null;
+  let currentLandmarks=[],displayLandmarks=[],lastLmTime=0;
+  const LM_FADE_MS=300;
+  let sentFrames=0,sentLast=performance.now();
+  const CONNECTIONS=[[0,1],[1,2],[2,3],[3,4],[0,5],[5,6],[6,7],[7,8],[0,9],[9,10],[10,11],[11,12],[0,13],[13,14],[14,15],[15,16],[0,17],[17,18],[18,19],[19,20],[5,9],[9,13],[13,17]];
+  const captureCanvas=document.getElementById('capture-canvas');
+  const captureCtx=captureCanvas.getContext('2d');
+  const skelCanvas=document.getElementById('skeleton-canvas');
+  const skelCtx=skelCanvas.getContext('2d');
+
+  async function startCamera(){
+    try{
+      stream=await navigator.mediaDevices.getUserMedia({video:{width:{ideal:640},height:{ideal:480},facingMode:'user'},audio:false});
+      const video=document.getElementById('camera-feed');
+      video.srcObject=stream; await video.play();
+      video.classList.add('visible');
+      document.getElementById('start-overlay').classList.add('hidden');
+      document.getElementById('btn-start').disabled=true;
+      document.getElementById('btn-stop').disabled=false;
+      sendRafId=requestAnimationFrame(sendLoop);
+      drawRafId=requestAnimationFrame(drawLoop);
+    }catch(e){toast('Camera error: '+e.message);}
+  }
+
+  function stopCamera(){
+    if(sendRafId){cancelAnimationFrame(sendRafId);sendRafId=null;}
+    if(drawRafId){cancelAnimationFrame(drawRafId);drawRafId=null;}
+    if(stream){stream.getTracks().forEach(t=>t.stop());stream=null;}
+    currentLandmarks=[];displayLandmarks=[];
+    document.getElementById('camera-feed').classList.remove('visible');
+    document.getElementById('start-overlay').classList.remove('hidden');
+    document.getElementById('btn-start').disabled=false;
+    document.getElementById('btn-stop').disabled=true;
+    skelCtx.clearRect(0,0,skelCanvas.width,skelCanvas.height);
+    resetUI();
+  }
+
+  let lastSendTime=0;const MIN_SEND_MS=33;
+  function sendLoop(ts){
+    sendRafId=requestAnimationFrame(sendLoop);
+    if(ts-lastSendTime<MIN_SEND_MS)return;
+    lastSendTime=ts;
+    const video=document.getElementById('camera-feed');
+    if(!video.videoWidth)return;
+    captureCanvas.width=video.videoWidth;captureCanvas.height=video.videoHeight;
+    captureCtx.save();captureCtx.translate(captureCanvas.width,0);captureCtx.scale(-1,1);
+    captureCtx.drawImage(video,0,0);captureCtx.restore();
+    socket.emit('frame',captureCanvas.toDataURL('image/jpeg',0.4));
+    sentFrames++;
+    const now=performance.now();
+    if(now-sentLast>=1000){
+      document.getElementById('fps-label').textContent=sentFrames+' fps sent | '+(window._serverFps||'—')+' fps server';
+      sentFrames=0;sentLast=now;
+    }
+  }
+
+  function drawLoop(ts){
+    drawRafId=requestAnimationFrame(drawLoop);
+    const video=document.getElementById('camera-feed');
+    if(video.offsetWidth){skelCanvas.width=video.offsetWidth;skelCanvas.height=video.offsetHeight;}
+    skelCtx.clearRect(0,0,skelCanvas.width,skelCanvas.height);
+    if(!currentLandmarks.length)return;
+    const age=ts-lastLmTime;
+    const alpha=age>LM_FADE_MS?0:1-(age/LM_FADE_MS);
+    if(alpha<=0)return;
+    const LERP=0.6;
+    if(!displayLandmarks.length||displayLandmarks.length!==currentLandmarks.length){
+      displayLandmarks=currentLandmarks.map(h=>h.map(p=>[...p]));
+    }else{
+      for(let h=0;h<currentLandmarks.length;h++){
+        if(!displayLandmarks[h]){displayLandmarks[h]=currentLandmarks[h].map(p=>[...p]);continue;}
+        for(let i=0;i<currentLandmarks[h].length;i++){
+          if(!displayLandmarks[h][i]){displayLandmarks[h][i]=[...currentLandmarks[h][i]];continue;}
+          displayLandmarks[h][i][0]+=(currentLandmarks[h][i][0]-displayLandmarks[h][i][0])*LERP;
+          displayLandmarks[h][i][1]+=(currentLandmarks[h][i][1]-displayLandmarks[h][i][1])*LERP;
+        }
+      }
+    }
+    drawSkeleton(displayLandmarks,alpha);
+  }
+
+  function drawSkeleton(handsLm,alpha){
+    const W=skelCanvas.width,H=skelCanvas.height;
+    handsLm.forEach(lm=>{
+      skelCtx.globalAlpha=0.65*alpha;
+      skelCtx.strokeStyle='rgba(232,255,71,0.4)';
+      skelCtx.lineWidth=2;
+      CONNECTIONS.forEach(([a,b])=>{
+        if(!lm[a]||!lm[b])return;
+        skelCtx.beginPath();skelCtx.moveTo(lm[a][0]*W,lm[a][1]*H);skelCtx.lineTo(lm[b][0]*W,lm[b][1]*H);skelCtx.stroke();
+      });
+      lm.forEach(([x,y],i)=>{
+        skelCtx.globalAlpha=alpha;
+        skelCtx.beginPath();skelCtx.arc(x*W,y*H,i===0?6:3.5,0,Math.PI*2);
+        skelCtx.fillStyle=i===0?'#e8ff47':'rgba(232,255,71,0.7)';
+        skelCtx.fill();
+      });
+    });
+    skelCtx.globalAlpha=1;
+  }
+
+  socket.on('result',(data)=>{
+    window._serverFps=data.server_fps||0;
+    if(data.landmarks&&data.landmarks.length){currentLandmarks=data.landmarks;lastLmTime=performance.now();}
+    else{currentLandmarks=[];}
+    updateUI(data);
+  });
+
+  function updateUI(data){
+    const handDot=document.getElementById('hand-dot');
+    const handLbl=document.getElementById('hand-label');
+    if(data.hand_detected){handDot.classList.add('detected');handLbl.textContent='HAND DETECTED';}
+    else{handDot.classList.remove('detected');handLbl.textContent='NO HAND';}
+    const predEl=document.getElementById('pred-label');
+    if(data.prediction){
+      predEl.textContent=data.prediction;predEl.classList.remove('idle');
+      document.getElementById('pred-conf').textContent='Confidence: '+data.confidence+'%';
+      document.getElementById('conf-bar').style.width=data.confidence+'%';
+      lastPrediction=data.prediction;
+    }else{
+      predEl.textContent=data.hand_detected?'Reading…':'Waiting…';predEl.classList.add('idle');
+      document.getElementById('pred-conf').textContent='Confidence: —';
+      document.getElementById('conf-bar').style.width='0%';
+    }
+    updateBuffer(data.buffer_fill);
+    if(data.all_probs&&Object.keys(data.all_probs).length)updateProbabilities(data.all_probs,data.prediction);
+  }
+
+  const DOTS=20;
+  const dotsEl=document.getElementById('buffer-dots');
+  for(let i=0;i<DOTS;i++){const d=document.createElement('div');d.className='dot';d.id='dot-'+i;dotsEl.appendChild(d);}
+  function updateBuffer(pct){
+    document.getElementById('buf-pct').textContent=pct+'%';
+    const filled=Math.round((pct/100)*DOTS);
+    for(let i=0;i<DOTS;i++){
+      const d=document.getElementById('dot-'+i);
+      d.className=i<filled-1?'dot filled':i===filled-1?'dot active':'dot';
+    }
+  }
+
+  function updateProbabilities(probs,topPred){
+    const list=document.getElementById('prob-list');
+    const sorted=Object.entries(probs).sort((a,b)=>b[1]-a[1]);
+    list.innerHTML=sorted.map(([label,prob])=>{
+      const pct=(prob*100).toFixed(1);const isTop=label===topPred;
+      return '<div class="prob-row"><div class="prob-row-header">'+
+        '<span class="prob-name" style="'+(isTop?'color:var(--accent)':'')+'">'+label+'</span>'+
+        '<span class="prob-val">'+pct+'%</span></div>'+
+        '<div class="prob-track"><div class="prob-fill '+(isTop?'top':'')+'" style="width:'+pct+'%"></div></div></div>';
+    }).join('');
+  }
+
+  function resetUI(){
+    document.getElementById('pred-label').textContent='Waiting…';
+    document.getElementById('pred-label').classList.add('idle');
+    document.getElementById('pred-conf').textContent='Confidence: —';
+    document.getElementById('conf-bar').style.width='0%';
+    document.getElementById('buf-pct').textContent='0%';
+    document.getElementById('hand-dot').classList.remove('detected');
+    document.getElementById('hand-label').textContent='NO HAND';
+    for(let i=0;i<DOTS;i++)document.getElementById('dot-'+i).className='dot';
+  }
+
+  let words=[];
+  function addWord(){if(!lastPrediction){toast('No prediction yet');return;}words.push(lastPrediction);renderSentence();}
+  function clearSentence(){words=[];renderSentence();}
+  function renderSentence(){
+    const el=document.getElementById('sentence-display');
+    el.innerHTML=words.length?words.map(w=>'<span class="word-chip">'+w+'</span>').join(''):
+      '<span style="color:var(--muted);font-size:.84rem;font-weight:400;">Recognized words will appear here…</span>';
+  }
+  function copySentence(){
+    if(!words.length){toast('Nothing to copy');return;}
+    navigator.clipboard.writeText(words.join(' ')).then(()=>toast('Copied!'));
+  }
+
+  let toastTimer;
+  function toast(msg){
+    const el=document.getElementById('toast');el.textContent=msg;el.classList.add('show');
+    clearTimeout(toastTimer);toastTimer=setTimeout(()=>el.classList.remove('show'),2500);
+  }
+</script>
